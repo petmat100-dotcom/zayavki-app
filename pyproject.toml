@@ -6,7 +6,8 @@ requires-python = ">=3.10"
 dependencies = [
     "flet==1.1.2",
     "fpdf2",
-    "httpx"
+    "httpx",
+    "supabase"
 ]
 
 [tool.flet]
@@ -23,3 +24,4 @@ permissions = [
     "android.permission.READ_EXTERNAL_STORAGE",
     "android.permission.WRITE_EXTERNAL_STORAGE"
 ]
+extract_packages = ["supabase", "pydantic", "pydantic_core"]

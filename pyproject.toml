@@ -25,4 +25,4 @@ permissions = [
     "android.permission.WRITE_EXTERNAL_STORAGE"
 ]
 # Следующая строка критически важна для работы Supabase на Android
-extract_packages = ["supabase", "pydantic", "pydantic_core"] # <--- ДОБАВЛЕНО
+extract_packages = ["supabase", "pydantic", "pydantic_core"]

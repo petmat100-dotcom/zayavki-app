@@ -18,17 +18,30 @@ jobs:
       with:
         python-version: '3.12'
 
-    - name: Install dependencies
+    - name: Set up Java JDK
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.24.0'
+        channel: 'stable'
+
+    - name: Install Python Dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
     - name: Build APK
       run: |
-        flet build apk --module-name main
+        flutter config --no-analytics
+        flet build apk --verbose
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
         name: Zayavki-APK
-        path: build/apk/app-release.apk
+        path: build/apk/*.apk

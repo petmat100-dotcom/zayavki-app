@@ -14,16 +14,17 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Build APK
+      id: build
       uses: flet-dev/flet-build-action@v1
       with:
-        target: 'apk'
-        runner-python-version: '3.12'
-        bundled-python-version: '3.12'
+        target: apk
+        runner-python-version: "3.12"
+        bundled-python-version: "3.12"
+        build-number: ${{ github.run_number }}
 
-    - name: Upload APK Artifact
+    - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
-        name: Zayavki-APK
         path: ${{ steps.build.outputs.archive-path }}
         archive: false
         if-no-files-found: error

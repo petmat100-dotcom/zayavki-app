@@ -1,6 +1,17 @@
 [project]
 name = "zayavki-app"
 version = "1.0.0"
+description = "Zayavki App"
 requires-python = ">=3.10"
+dependencies = [
+    "flet==1.1.2",
+    "fpdf2",
+    "httpx"
+]
 
 [tool.flet]
+org = "com.petmat"
+product = "Zayavki"
+
+[tool.flet.app]
+path = "."

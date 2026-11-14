@@ -17,9 +17,9 @@ def main(page: ft.Page):
     page.title = "Система заявок и ремонтов"
     page.theme_mode = ft.ThemeMode.LIGHT
     page.padding = 10 
-    page.scroll = ft.ScrollMode.AUTO 
+    # page.scroll = ft.ScrollMode.AUTO  <-- УБРАНО, чтобы не было бесконечной прокрутки
 
-    # Безопасная зона, чтобы вкладки не уходили под системную панель
+    # Безопасная зона для мобильных устройств
     page.add(ft.SafeArea(ft.Container()))
 
     db.init_db()
@@ -32,6 +32,8 @@ def main(page: ft.Page):
 
     # --- ОБРАБОТЧИК ФОТО ---
     file_picker = ft.FilePicker()
+    page.overlay.append(file_picker) # КРИТИЧЕСКИ ВАЖНО для работы галереи на Android
+    
     current_photo_key = None
     new_photo_paths = {"meter": None, "serial": None, "general": None, "object": None, "seal": None}
     form_photo_widgets = {}
@@ -74,10 +76,18 @@ def main(page: ft.Page):
 
         cam = fc.Camera(preview_enabled=True, expand=True)
 
+        async def init_cam():
+            try:
+                await cam.initialize()
+                page.update()
+            except Exception as ex:
+                page.show_dialog(ft.SnackBar(ft.Text(f"Ошибка инициализации камеры: {ex}"), bgcolor=ft.Colors.RED))
+
         def take_picture(ev):
             async def capture():
                 try:
-                    img_bytes = await cam.take_photo()
+                    # Исправлено на take_picture()
+                    img_bytes = await cam.take_picture()
                     temp_file = os.path.join(tempfile.gettempdir(), f"{key}_photo.jpg")
                     with open(temp_file, "wb") as f:
                         f.write(img_bytes)
@@ -85,7 +95,7 @@ def main(page: ft.Page):
                     update_form_photo_ui(key, temp_file)
                     close_camera(None)
                 except Exception as ex:
-                    page.show_dialog(ft.SnackBar(ft.Text(f"Ошибка камеры: {ex}"), bgcolor=ft.Colors.RED))
+                    page.show_dialog(ft.SnackBar(ft.Text(f"Ошибка съемки: {ex}"), bgcolor=ft.Colors.RED))
             page.run_task(capture)
 
         camera_view = ft.Container(
@@ -104,6 +114,7 @@ def main(page: ft.Page):
             page.update()
 
         page.overlay.append(camera_view)
+        page.run_task(init_cam) # Запускаем инициализацию
         page.update()
 
     def create_form_photo_section(title, key):
@@ -150,6 +161,7 @@ def main(page: ft.Page):
 
     new_meter = ft.Dropdown(
         label="Тип счетчика",
+        menu_height=300, # Ограничение высоты выпадающего списка
         options=[
             ft.DropdownOption(key="smt_smart_g6b", text="СМТ Смарт-К G6-B"),
             ft.DropdownOption(key="smt_smart_g4b", text="СМТ Смарт-К G4-B"),
@@ -237,25 +249,30 @@ def main(page: ft.Page):
         tab_bar_view.selected_index = 1
         page.update()
 
+    # Заменили Column на ListView для правильной прокрутки
     form_tab = ft.Container(
         padding=20,
-        content=ft.Column([
-            ft.Text("Создание новой заявки", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_700),
-            new_obj_name, new_district, new_address, new_fio, new_created_by,
-            ft.Divider(),
-            ft.Text("Данные счетчика", size=18, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_700),
-            new_meter, new_meter_serial, new_meter_readings, new_meter_seal, new_malfunction,
-            ft.Divider(),
-            ft.Text("Фотофиксация", size=18, weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_700),
-            create_form_photo_section("1. Счетчик с показаниями", "meter"),
-            create_form_photo_section("2. Заводской номер", "serial"),
-            create_form_photo_section("3. Общее фото", "general"),
-            create_form_photo_section("4. Фото объекта", "object"),
-            create_form_photo_section("5. Фото пломбы", "seal"),
-            ft.Container(height=10),
-            ft.Button("Сохранить заявку", icon=ft.Icons.SAVE, on_click=save_new_request,
-                      bgcolor=ft.Colors.BLUE_700, color=ft.Colors.WHITE, expand=True, height=50)
-        ], scroll=ft.ScrollMode.AUTO)
+        content=ft.ListView(
+            controls=[
+                ft.Text("Создание новой заявки", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_700),
+                new_obj_name, new_district, new_address, new_fio, new_created_by,
+                ft.Divider(),
+                ft.Text("Данные счетчика", size=18, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_700),
+                new_meter, new_meter_serial, new_meter_readings, new_meter_seal, new_malfunction,
+                ft.Divider(),
+                ft.Text("Фотофиксация", size=18, weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_700),
+                create_form_photo_section("1. Счетчик с показаниями", "meter"),
+                create_form_photo_section("2. Заводской номер", "serial"),
+                create_form_photo_section("3. Общее фото", "general"),
+                create_form_photo_section("4. Фото объекта", "object"),
+                create_form_photo_section("5. Фото пломбы", "seal"),
+                ft.Container(height=10),
+                ft.Button("Сохранить заявку", icon=ft.Icons.SAVE, on_click=save_new_request,
+                          bgcolor=ft.Colors.BLUE_700, color=ft.Colors.WHITE, expand=True, height=50),
+                ft.Container(height=50) # Отступ снизу
+            ],
+            spacing=10,
+        )
     )
 
     # ==========================================

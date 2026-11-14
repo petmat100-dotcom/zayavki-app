@@ -45,15 +45,15 @@ jobs:
         import os
         
         # Telegram
-        with open('telegram_sender.py', 'r', encoding='utf-8') as f: content = f.read()
-        content = content.replace('BOT_TOKEN_PLACEHOLDER', os.environ['TELEGRAM_BOT_TOKEN'])
-        content = content.replace('CHAT_ID_PLACEHOLDER', os.environ['TELEGRAM_CHAT_ID'])
-        with open('telegram_sender.py', 'w', encoding='utf-8') as f: f.write(content)
+        with open('telegram_sender.py', 'r', encoding='utf-8') as f: t_content = f.read()
+        t_content = t_content.replace('BOT_TOKEN_PLACEHOLDER', os.environ.get('TELEGRAM_BOT_TOKEN', '').strip())
+        t_content = t_content.replace('CHAT_ID_PLACEHOLDER', os.environ.get('TELEGRAM_CHAT_ID', '').strip())
+        with open('telegram_sender.py', 'w', encoding='utf-8') as f: f.write(t_content)
         
         # Supabase
         with open('database.py', 'r', encoding='utf-8') as f: db_content = f.read()
-        db_content = db_content.replace('os.environ.get(\"SUPABASE_URL\", \"\")', f'\"{os.environ[\"SUPABASE_URL\"]}\"')
-        db_content = db_content.replace('os.environ.get(\"SUPABASE_KEY\", \"\")', f'\"{os.environ[\"SUPABASE_KEY\"]}\"')
+        db_content = db_content.replace('SUPABASE_URL_PLACEHOLDER', os.environ.get('SUPABASE_URL', '').strip())
+        db_content = db_content.replace('SUPABASE_KEY_PLACEHOLDER', os.environ.get('SUPABASE_KEY', '').strip())
         with open('database.py', 'w', encoding='utf-8') as f: f.write(db_content)
         "
 

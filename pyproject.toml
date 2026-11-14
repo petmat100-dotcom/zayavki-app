@@ -5,11 +5,11 @@ description = "Flet Zayavki App"
 requires-python = ">=3.10"
 dependencies = [
     "flet==1.1.2",
+    "flet-camera",    
     "fpdf2",
     "httpx",
-    "supabase"       # <--- ДОБАВЛЕНО
+    "supabase"
 ]
-
 [tool.flet]
 org = "com.petmat"
 product = "Zayavki"

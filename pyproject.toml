@@ -24,5 +24,8 @@ permissions = [
     "android.permission.READ_EXTERNAL_STORAGE",
     "android.permission.WRITE_EXTERNAL_STORAGE"
 ]
-# Следующая строка критически важна для работы Supabase на Android
 extract_packages = ["supabase", "pydantic", "pydantic_core"]
+
+# 👇 ДОБАВИТЬ ВОТ ЭТУ СЕКЦИЮ
+[tool.flet.android.packaging_options]
+pickFirsts = ["**/libc++_shared.so"]

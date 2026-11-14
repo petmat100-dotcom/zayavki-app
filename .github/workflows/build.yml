@@ -34,9 +34,32 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
+    - name: Inject Secrets
+      env:
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+      run: |
+        python -c "
+        import os
+        
+        # Telegram
+        with open('telegram_sender.py', 'r', encoding='utf-8') as f: content = f.read()
+        content = content.replace('BOT_TOKEN_PLACEHOLDER', os.environ['TELEGRAM_BOT_TOKEN'])
+        content = content.replace('CHAT_ID_PLACEHOLDER', os.environ['TELEGRAM_CHAT_ID'])
+        with open('telegram_sender.py', 'w', encoding='utf-8') as f: f.write(content)
+        
+        # Supabase
+        with open('database.py', 'r', encoding='utf-8') as f: db_content = f.read()
+        db_content = db_content.replace('os.environ.get(\"SUPABASE_URL\", \"\")', f'\"{os.environ[\"SUPABASE_URL\"]}\"')
+        db_content = db_content.replace('os.environ.get(\"SUPABASE_KEY\", \"\")', f'\"{os.environ[\"SUPABASE_KEY\"]}\"')
+        with open('database.py', 'w', encoding='utf-8') as f: f.write(db_content)
+        "
+
     - name: Build APK
       run: |
-        flet build apk --python-version 3.12 --yes --no-rich-output
+        flet build apk --python-version 3.12 --yes --no-rich-output --arch arm64-v8a
 
     - name: Upload APK
       uses: actions/upload-artifact@v4

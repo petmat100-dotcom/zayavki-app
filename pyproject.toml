@@ -1,7 +1,7 @@
 [project]
 name = "zayavki-app"
 version = "1.0.0"
-description = "Zayavki App"
+description = "Flet Zayavki App"
 requires-python = ">=3.10"
 dependencies = [
     "flet==1.1.2",

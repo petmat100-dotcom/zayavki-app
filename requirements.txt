@@ -1,4 +1,3 @@
 flet==1.1.2
-# flet-camera==1.1.2
 fpdf2
 httpx

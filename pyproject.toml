@@ -7,7 +7,7 @@ dependencies = [
     "flet==1.1.2",
     "fpdf2",
     "httpx",
-    "supabase"
+    "supabase"       # <--- ДОБАВЛЕНО
 ]
 
 [tool.flet]
@@ -24,4 +24,5 @@ permissions = [
     "android.permission.READ_EXTERNAL_STORAGE",
     "android.permission.WRITE_EXTERNAL_STORAGE"
 ]
-extract_packages = ["supabase", "pydantic", "pydantic_core"]
+# Следующая строка критически важна для работы Supabase на Android
+extract_packages = ["supabase", "pydantic", "pydantic_core"] # <--- ДОБАВЛЕНО

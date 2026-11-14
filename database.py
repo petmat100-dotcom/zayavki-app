@@ -2,15 +2,14 @@
 import os
 from supabase import create_client, Client
 
-# Берем ключи из переменных окружения (при сборке подставятся из GitHub Secrets)
-URL = os.environ.get("SUPABASE_URL", "")
-KEY = os.environ.get("SUPABASE_KEY", "")
+# Заглушки, которые заменятся при сборке
+URL = "SUPABASE_URL_PLACEHOLDER"
+KEY = "SUPABASE_KEY_PLACEHOLDER"
 
 def get_client():
-    if not URL or not KEY:
-        print("ОШИБКА: Не заданы SUPABASE_URL или SUPABASE_KEY")
+    if "PLACEHOLDER" in URL:
+        print("ОШИБКА: Секреты Supabase не подгрузились!")
     return create_client(URL, KEY)
-
 def init_db():
     # Таблица уже создана в Supabase через SQL Editor
     pass

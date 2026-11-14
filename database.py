@@ -1,88 +1,87 @@
 # database.py
-import sqlite3
 import os
-from datetime import datetime
+from supabase import create_client, Client
 
-DATA_DIR = os.getenv("FLET_APP_STORAGE_DATA", ".")
-DB_PATH = os.path.join(DATA_DIR, "service_requests.db")
+# Берем ключи из переменных окружения (при сборке подставятся из GitHub Secrets)
+URL = os.environ.get("SUPABASE_URL", "")
+KEY = os.environ.get("SUPABASE_KEY", "")
 
-def get_connection():
-    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    return conn
+def get_client():
+    if not URL or not KEY:
+        print("ОШИБКА: Не заданы SUPABASE_URL или SUPABASE_KEY")
+    return create_client(URL, KEY)
 
 def init_db():
-    with get_connection() as conn:
-        conn.execute('''
-            CREATE TABLE IF NOT EXISTS requests (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                obj_name TEXT, address TEXT, fio TEXT, meter TEXT, meter_serial TEXT,
-                meter_readings TEXT, meter_seal TEXT, malfunction TEXT,
-                status TEXT NOT NULL DEFAULT 'active', created_by TEXT, repaired_by TEXT,
-                repair_process TEXT, repair_parts TEXT, repair_cost TEXT,
-                created_at TEXT, completed_at TEXT,
-                photo_meter TEXT, photo_serial TEXT, photo_general TEXT, photo_object TEXT, photo_seal TEXT
-            )
-        ''')
-        conn.commit()
-
-def _row_to_request(row):
-    return {
-        "id": row["id"], "obj_name": row["obj_name"] or "", "address": row["address"] or "",
-        "fio": row["fio"] or "", "meter": row["meter"] or "", "meter_serial": row["meter_serial"] or "",
-        "meter_readings": row["meter_readings"] or "", "meter_seal": row["meter_seal"] or "",
-        "malfunction": row["malfunction"] or "", "status": row["status"], "created_by": row["created_by"] or "",
-        "repaired_by": row["repaired_by"] or "", "repair_process": row["repair_process"] or "",
-        "repair_parts": row["repair_parts"] or "", "repair_cost": row["repair_cost"] or "",
-        "photos": {
-            "meter": row["photo_meter"], "serial": row["photo_serial"], "general": row["photo_general"],
-            "object": row["photo_object"], "seal": row["photo_seal"],
-        },
-    }
+    # Таблица уже создана в Supabase через SQL Editor
+    pass
 
 def save_request(data: dict) -> int:
+    supabase = get_client()
     photos = data.get("photos", {})
-    with get_connection() as conn:
-        cursor = conn.cursor()
-        fields = [
-            "obj_name", "address", "fio", "meter", "meter_serial", "meter_readings", "meter_seal",
-            "malfunction", "status", "created_by", "repaired_by", "repair_process", "repair_parts",
-            "repair_cost", "created_at", "photo_meter", "photo_serial", "photo_general", "photo_object", "photo_seal",
-        ]
-        values = [
-            data.get("obj_name"), data.get("address"), data.get("fio"), data.get("meter"),
-            data.get("meter_serial"), data.get("meter_readings"), data.get("meter_seal"), data.get("malfunction"),
-            data.get("status", "active"), data.get("created_by"), data.get("repaired_by", ""),
-            data.get("repair_process", ""), data.get("repair_parts", ""), data.get("repair_cost", ""),
-            datetime.now().isoformat(), photos.get("meter"), photos.get("serial"), photos.get("general"),
-            photos.get("object"), photos.get("seal"),
-        ]
-        placeholders = ", ".join(["?"] * len(fields))
-        cursor.execute(f"INSERT INTO requests ({', '.join(fields)}) VALUES ({placeholders})", values)
-        conn.commit()
-        return cursor.lastrowid
+    
+    db_data = {
+        "obj_name": data.get("obj_name"),
+        "address": data.get("address"),
+        "fio": data.get("fio"),
+        "meter": data.get("meter"),
+        "meter_serial": data.get("meter_serial"),
+        "meter_readings": data.get("meter_readings"),
+        "meter_seal": data.get("meter_seal"),
+        "malfunction": data.get("malfunction"),
+        "status": data.get("status", "active"),
+        "created_by": data.get("created_by"),
+        "repaired_by": data.get("repaired_by", ""),
+        "repair_process": data.get("repair_process", ""),
+        "repair_parts": data.get("repair_parts", ""),
+        "repair_cost": data.get("repair_cost", ""),
+        "photo_meter": photos.get("meter"),
+        "photo_serial": photos.get("serial"),
+        "photo_general": photos.get("general"),
+        "photo_object": photos.get("object"),
+        "photo_seal": photos.get("seal"),
+    }
+    
+    response = supabase.table("requests").insert(db_data).execute()
+    return response.data[0]['id'] if response.data else 0
 
 def complete_request(request_id: int, data: dict):
-    with get_connection() as conn:
-        conn.execute(
-            """
-            UPDATE requests SET status = 'completed', repair_process = ?, repair_parts = ?, 
-                repair_cost = ?, repaired_by = ?, completed_at = ? WHERE id = ?
-            """,
-            (data.get("repair_process", ""), data.get("repair_parts", ""), data.get("repair_cost", ""),
-             data.get("repaired_by", ""), datetime.now().isoformat(), request_id,),
-        )
-        conn.commit()
+    supabase = get_client()
+    supabase.table("requests").update({
+        "status": "completed",
+        "repair_process": data.get("repair_process", ""),
+        "repair_parts": data.get("repair_parts", ""),
+        "repair_cost": data.get("repair_cost", ""),
+        "repaired_by": data.get("repaired_by", ""),
+    }).eq("id", request_id).execute()
 
 def get_filtered_requests(status: str, search_query: str = "") -> list:
-    with get_connection() as conn:
-        cursor = conn.cursor()
-        if search_query:
-            pattern = f"%{search_query}%"
-            cursor.execute(
-                "SELECT * FROM requests WHERE status = ? AND (address LIKE ? OR fio LIKE ? OR meter_serial LIKE ? OR obj_name LIKE ?) ORDER BY created_at DESC",
-                (status, pattern, pattern, pattern, pattern),
-            )
-        else:
-            cursor.execute("SELECT * FROM requests WHERE status = ? ORDER BY created_at DESC", (status,))
-        return [_row_to_request(row) for row in cursor.fetchall()]
+    supabase = get_client()
+    response = supabase.table("requests").select("*").eq("status", status).order("id", desc=True).execute()
+    requests = response.data
+    
+    if search_query:
+        pattern = search_query.lower()
+        filtered = []
+        for r in requests:
+            if (pattern in (r.get("address") or "").lower() or
+                pattern in (r.get("fio") or "").lower() or
+                pattern in (r.get("meter_serial") or "").lower() or
+                pattern in (r.get("obj_name") or "").lower()):
+                filtered.append(r)
+        requests = filtered
+
+    result = []
+    for row in requests:
+        result.append({
+            "id": row["id"], "obj_name": row["obj_name"] or "", "address": row["address"] or "",
+            "fio": row["fio"] or "", "meter": row["meter"] or "", "meter_serial": row["meter_serial"] or "",
+            "meter_readings": row["meter_readings"] or "", "meter_seal": row["meter_seal"] or "",
+            "malfunction": row["malfunction"] or "", "status": row["status"], "created_by": row["created_by"] or "",
+            "repaired_by": row["repaired_by"] or "", "repair_process": row["repair_process"] or "",
+            "repair_parts": row["repair_parts"] or "", "repair_cost": row["repair_cost"] or "",
+            "photos": {
+                "meter": row["photo_meter"], "serial": row["photo_serial"], "general": row["photo_general"],
+                "object": row["photo_object"], "seal": row["photo_seal"],
+            },
+        })
+    return result

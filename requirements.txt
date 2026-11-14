@@ -1,4 +1,5 @@
 flet==1.1.2
+flet-camera
 fpdf2
 httpx
 supabase

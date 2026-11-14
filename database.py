@@ -2,7 +2,7 @@
 import os
 from supabase import create_client, Client
 
-# Заглушки, которые заменятся при сборке
+# Заглушки, которые автоматически заменятся при сборке на GitHub
 URL = "SUPABASE_URL_PLACEHOLDER"
 KEY = "SUPABASE_KEY_PLACEHOLDER"
 
@@ -10,8 +10,9 @@ def get_client():
     if "PLACEHOLDER" in URL:
         print("ОШИБКА: Секреты Supabase не подгрузились!")
     return create_client(URL, KEY)
+
 def init_db():
-    # Таблица уже создана в Supabase через SQL Editor
+    # База данных уже создана в Supabase через SQL Editor
     pass
 
 def save_request(data: dict) -> int:
@@ -55,9 +56,11 @@ def complete_request(request_id: int, data: dict):
 
 def get_filtered_requests(status: str, search_query: str = "") -> list:
     supabase = get_client()
+    # Получаем данные из облака
     response = supabase.table("requests").select("*").eq("status", status).order("id", desc=True).execute()
     requests = response.data
     
+    # Фильтрация поиска (выполняется на стороне клиента для простоты)
     if search_query:
         pattern = search_query.lower()
         filtered = []
@@ -69,6 +72,7 @@ def get_filtered_requests(status: str, search_query: str = "") -> list:
                 filtered.append(r)
         requests = filtered
 
+    # Приводим формат данных к тому, который ожидает интерфейс (main.py)
     result = []
     for row in requests:
         result.append({

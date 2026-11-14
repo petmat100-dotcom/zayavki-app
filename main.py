@@ -16,10 +16,10 @@ except ImportError:
 def main(page: ft.Page):
     page.title = "Система заявок и ремонтов"
     page.theme_mode = ft.ThemeMode.LIGHT
-    page.padding = 10  # Убрали 0, чтобы был отступ от краев
-    page.scroll = ft.ScrollMode.AUTO # Разрешаем скролл всей страницы
+    page.padding = 10 
+    page.scroll = ft.ScrollMode.AUTO 
 
-    # Безопасная зона для мобильных устройств (чтобы вкладки не уходили под "челку")
+    # Безопасная зона, чтобы вкладки не уходили под системную панель
     page.add(ft.SafeArea(ft.Container()))
 
     db.init_db()
@@ -68,7 +68,6 @@ def main(page: ft.Page):
         file_picker.pick_files(allow_multiple=False, file_type=ft.FilePickerFileType.IMAGE)
 
     def open_camera(e, key):
-        # На ПК (Windows) камера блокируется, на Android/iOS - работает
         if str(page.platform) == "windows" or fc is None:
             page.show_dialog(ft.SnackBar(ft.Text("Камера доступна только на мобильном устройстве.", bgcolor=ft.Colors.RED)))
             return
@@ -104,7 +103,7 @@ def main(page: ft.Page):
             camera_view.visible = False
             page.update()
 
-        page.overlay.append(camera_view) # Показываем поверх всего
+        page.overlay.append(camera_view)
         page.update()
 
     def create_form_photo_section(title, key):
@@ -126,7 +125,6 @@ def main(page: ft.Page):
     # ==========================================
     # 1. ВКЛАДКА: НОВАЯ ЗАЯВКА
     # ==========================================
-    # Убрали жесткую ширину 350, теперь поля тянутся на всю ширину экрана
     field_style = {"expand": True, "height": 50} 
 
     new_obj_name = ft.TextField(label="Наименование объекта", **field_style)
@@ -217,7 +215,6 @@ def main(page: ft.Page):
             "photos": persisted_photos,
         })
 
-        # Очистка формы
         new_obj_name.value = ""
         new_district.value = None
         new_address.value = ""
@@ -262,7 +259,7 @@ def main(page: ft.Page):
     )
 
     # ==========================================
-    # ПОИСК И СПИСКИ (без изменений)
+    # ПОИСК И СПИСКИ
     # ==========================================
     def on_search_active(e):
         nonlocal search_query_active
@@ -293,11 +290,12 @@ def main(page: ft.Page):
     content_area = ft.Container(content=main_tabs, expand=True)
 
     def refresh_lists():
-        # ... (код функции refresh_lists оставляем без изменений, он был правильный)
         list_active.controls.clear()
         list_completed.controls.clear()
+
         active_reqs = db.get_filtered_requests("active", search_query_active)
         completed_reqs = db.get_filtered_requests("completed", search_query_completed)
+
         for req in active_reqs + completed_reqs:
             card_controls = [
                 ft.Text(f"Заявка №{req['id']} | {req['meter']}", weight=ft.FontWeight.BOLD),
@@ -305,30 +303,153 @@ def main(page: ft.Page):
                 ft.Text(f"Адрес: {req['address']}"),
                 ft.Text(f"Клиент: {req['fio']}"),
                 ft.Text(f"Создал: {req.get('created_by', 'Не указан')}", color=ft.Colors.BLUE),
-                ft.Text("Статус: " + ("В работе" if req['status'] == 'active' else "Завершена"), color=ft.Colors.ORANGE if req['status'] == 'active' else ft.Colors.GREEN)
+                ft.Text("Статус: " + ("В работе" if req['status'] == 'active' else "Завершена"),
+                        color=ft.Colors.ORANGE if req['status'] == 'active' else ft.Colors.GREEN)
             ]
+
             if req['status'] == 'completed':
                 cost = req.get('repair_cost', '')
                 worker = req.get('repaired_by', 'Не указан')
-                if cost: card_controls.append(ft.Text(f"💰 Стоимость: {cost} ₽", color=ft.Colors.GREEN_800, weight=ft.FontWeight.BOLD))
+                if cost:
+                    card_controls.append(ft.Text(f"💰 Стоимость: {cost} ₽", color=ft.Colors.GREEN_800, weight=ft.FontWeight.BOLD))
                 card_controls.append(ft.Text(f"🔧 Выполнил: {worker}", color=ft.Colors.GREY_800))
-            
+
             card = ft.Container(
-                content=ft.Column(card_controls), padding=15, border=ft.Border.all(1, ft.Colors.GREY_300), border_radius=10, bgcolor=ft.Colors.WHITE,
-                on_click=lambda e, r=req: open_request_detail(r, is_view_only=(r['status'] == 'completed')), ink=True
+                content=ft.Column(card_controls),
+                padding=15, border=ft.Border.all(1, ft.Colors.GREY_300), border_radius=10, bgcolor=ft.Colors.WHITE,
+                on_click=lambda e, r=req: open_request_detail(r, is_view_only=(r['status'] == 'completed')),
+                ink=True
             )
-            if req['status'] == 'active': list_active.controls.append(card)
-            else: list_completed.controls.append(card)
+
+            if req['status'] == 'active':
+                list_active.controls.append(card)
+            else:
+                list_completed.controls.append(card)
+
         page.update()
 
+    # ==========================================
+    # ОКНО ПРОСМОТРА / РЕМОНТА ЗАЯВКИ
+    # ==========================================
     def open_request_detail(req, is_view_only=False):
-        # ... (код функции open_request_detail оставляем без изменений)
-        # (Он у тебя был написан хорошо, я не буду его дублировать, чтобы не загромождать ответ. 
-        # Просто скопируй свою старую функцию open_request_detail сюда).
-        pass # Замени этот pass на свою функцию
+        repair_process = ft.TextField(label="Процесс ремонта", multiline=True, min_lines=2, value=req.get("repair_process", ""), read_only=is_view_only)
+        repair_parts = ft.TextField(label="Замененные детали", multiline=True, min_lines=1, value=req.get("repair_parts", ""), read_only=is_view_only)
+        repair_cost = ft.TextField(label="Стоимость (руб.)", value=req.get("repair_cost", ""), read_only=is_view_only)
+        repair_worker = ft.TextField(label="Специалист (выполнил ремонт)", value=req.get("repaired_by", ""), read_only=is_view_only)
 
-    # Убираем page.add(content_area), так как мы уже добавили SafeArea
-    # Вместо этого добавляем content_area внутрь page
+        def go_back(e):
+            content_area.content = main_tabs
+            page.update()
+
+        def complete_repair(e):
+            db.complete_request(int(req["id"]), {
+                "repair_process": repair_process.value,
+                "repair_parts": repair_parts.value,
+                "repair_cost": repair_cost.value,
+                "repaired_by": repair_worker.value if repair_worker.value else "Не указан",
+            })
+            refresh_lists()
+            go_back(None)
+
+        def export_pdf(e):
+            try:
+                path = generate_request_pdf(req)
+            except Exception as ex:
+                page.show_dialog(ft.SnackBar(ft.Text(f"Ошибка PDF: {ex}"), bgcolor=ft.Colors.RED))
+                return
+            try:
+                if os.name == "nt":
+                    os.startfile(path) 
+                    page.show_dialog(ft.SnackBar(ft.Text("✅ PDF сформирован и открыт")))
+                else:
+                    page.show_dialog(ft.SnackBar(ft.Text(f"✅ PDF сохранён: {path}")))
+            except Exception:
+                page.show_dialog(ft.SnackBar(ft.Text(f"✅ PDF сохранён: {path}")))
+
+        def send_tg(e):
+            try:
+                path = generate_request_pdf(req)
+            except Exception as ex:
+                page.show_dialog(ft.SnackBar(ft.Text(f"Ошибка PDF: {ex}"), bgcolor=ft.Colors.RED))
+                return
+
+            tg_button.text = "⏳ Отправка..."
+            tg_button.disabled = True
+            page.update()
+
+            def do_send():
+                success, msg = send_pdf_to_telegram(path, req)
+                tg_button.text = "📤 В Telegram"
+                tg_button.disabled = False
+                if success:
+                    page.show_dialog(ft.SnackBar(ft.Text("✅ PDF отправлен в Telegram!"), bgcolor=ft.Colors.GREEN))
+                else:
+                    page.show_dialog(ft.SnackBar(ft.Text(f"❌ Ошибка: {msg}"), bgcolor=ft.Colors.RED))
+                page.update()
+
+            page.run_thread(do_send)
+
+        pdf_button = ft.Button("📄 Экспорт в PDF", icon=ft.Icons.PICTURE_AS_PDF, on_click=export_pdf, bgcolor=ft.Colors.RED_700, color=ft.Colors.WHITE)
+        tg_button = ft.Button("📤 В Telegram", icon=ft.Icons.SEND, on_click=send_tg, bgcolor=ft.Colors.BLUE, color=ft.Colors.WHITE)
+
+        if is_view_only:
+            action_buttons = ft.Row([
+                pdf_button,
+                tg_button,
+                ft.Button("✏️ Редактировать", icon=ft.Icons.EDIT, bgcolor=ft.Colors.ORANGE, color=ft.Colors.WHITE, on_click=lambda _: open_request_detail(req, is_view_only=False))
+            ], alignment=ft.MainAxisAlignment.CENTER, wrap=True)
+        else:
+            action_buttons = ft.Row([
+                pdf_button,
+                tg_button,
+                ft.Button("✅ Завершить ремонт", icon=ft.Icons.CHECK, bgcolor=ft.Colors.GREEN, color=ft.Colors.WHITE, on_click=complete_repair)
+            ], alignment=ft.MainAxisAlignment.CENTER, wrap=True)
+
+        photos_column = ft.Column(spacing=10)
+        photo_titles = {"meter": "1. Счетчик с показаниями", "serial": "2. Заводской номер", "general": "3. Общее фото", "object": "4. Фото объекта", "seal": "5. Фото пломбы"}
+
+        for k, title in photo_titles.items():
+            path = req["photos"].get(k)
+            if path and os.path.exists(path):
+                photos_column.controls.append(ft.Column([
+                    ft.Text(title, weight=ft.FontWeight.BOLD, size=12),
+                    ft.Image(src=path, width=250, height=150, border_radius=10, fit=ft.BoxFit.COVER)
+                ]))
+            else:
+                photos_column.controls.append(ft.Text(f"{title}: ❌ Нет фото", color=ft.Colors.RED, size=12))
+
+        detail_view = ft.Column([
+            ft.Row([ft.IconButton(ft.Icons.ARROW_BACK, on_click=go_back), ft.Text(f"Заявка №{req['id']}", size=20, weight=ft.FontWeight.BOLD)]),
+            ft.Divider(),
+
+            ft.Text("Данные объекта", size=18, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_700),
+            ft.Text(f"Объект: {req.get('obj_name', 'Не указан')}"),
+            ft.Text(f"Адрес: {req['address']}"),
+            ft.Text(f"Клиент: {req['fio']}"),
+            ft.Text(f"Создал заявку: {req.get('created_by', 'Не указан')}", color=ft.Colors.BLUE, weight=ft.FontWeight.BOLD),
+            ft.Divider(),
+
+            ft.Text("Данные счетчика", size=18, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_700),
+            ft.Text(f"Тип: {req['meter']}"),
+            ft.Text(f"Заводской номер: {req.get('meter_serial', 'Не указан')}"),
+            ft.Text(f"Показания: {req.get('meter_readings', 'Не указан')}"),
+            ft.Text(f"Номер пломбы: {req.get('meter_seal', 'Не указан')}"),
+            ft.Text(f"Неисправность: {req.get('malfunction', 'Нет')}"),
+            ft.Divider(),
+
+            ft.Text("Фотофиксация", size=18, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_700),
+            photos_column,
+            ft.Divider(),
+
+            ft.Text("Выполнение ремонта", size=18, weight=ft.FontWeight.BOLD, color=ft.Colors.RED_700),
+            repair_worker, repair_process, repair_parts, repair_cost,
+            ft.Container(height=20),
+            action_buttons
+        ], scroll=ft.ScrollMode.AUTO)
+
+        content_area.content = ft.Container(content=detail_view, padding=20)
+        page.update()
+
     page.add(content_area)
     refresh_lists()
 

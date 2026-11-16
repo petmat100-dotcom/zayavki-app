@@ -10,18 +10,25 @@ from telegram_sender import send_pdf_to_telegram
 
 try:
     import flet_camera as fc
+    import flet_permission_handler as fph
 except ImportError:
     fc = None
+    fph = None
 
 def main(page: ft.Page):
     page.title = "Система заявок и ремонтов"
     page.theme_mode = ft.ThemeMode.LIGHT
     page.padding = 10 
 
-    # Безопасная зона для мобильных устройств
     page.add(ft.SafeArea(ft.Container()))
 
     db.init_db()
+
+    # Инициализация обработчика разрешений (камера, галерея, GPS)
+    ph = None
+    if fph:
+        ph = fph.PermissionHandler()
+        page.overlay.append(ph)
 
     search_query_active = ""
     search_query_completed = ""
@@ -66,54 +73,87 @@ def main(page: ft.Page):
     def pick_gallery(e, key):
         nonlocal current_photo_key
         current_photo_key = key
-        file_picker.pick_files(allow_multiple=False, file_type=ft.FilePickerFileType.IMAGE)
+        
+        async def request_and_pick():
+            if ph:
+                # Запрашиваем доступ к фото/галерее
+                status = await ph.request(fph.PermissionType.PHOTOS)
+                if status != fph.PermissionStatus.GRANTED:
+                    page.show_dialog(ft.SnackBar(ft.Text("Нет разрешения на доступ к галерее!"), bgcolor=ft.Colors.RED))
+                    return
+            file_picker.pick_files(allow_multiple=False, file_type=ft.FilePickerFileType.IMAGE)
+            
+        page.run_task(request_and_pick)
 
     def open_camera(e, key):
         if str(page.platform) == "windows" or fc is None:
             page.show_dialog(ft.SnackBar(ft.Text("Камера доступна только на мобильном устройстве.", bgcolor=ft.Colors.RED)))
             return
 
-        cam = fc.Camera(preview_enabled=True, expand=True)
+        async def request_and_open():
+            if ph:
+                # Запрашиваем доступ к камере
+                status = await ph.request(fph.PermissionType.CAMERA)
+                if status != fph.PermissionStatus.GRANTED:
+                    page.show_dialog(ft.SnackBar(ft.Text("Нет разрешения на камеру!"), bgcolor=ft.Colors.RED))
+                    return
 
-        async def init_cam():
-            try:
-                await cam.initialize()
-                page.update()
-            except Exception as ex:
-                page.show_dialog(ft.SnackBar(ft.Text(f"Ошибка инициализации камеры: {ex}"), bgcolor=ft.Colors.RED))
+            # Получаем список камер (новый API)
+            cameras = await fc.get_available_cameras()
+            if not cameras:
+                page.show_dialog(ft.SnackBar(ft.Text("Камера не найдена."), bgcolor=ft.Colors.RED))
+                return
+            
+            # Выбираем основную камеру (тыловую), если есть, иначе первую
+            selected_camera = next((c for c in cameras if c.lens_direction == fc.CameraLensDirection.BACK), cameras[0])
 
-        def take_picture(ev):
-            async def capture():
+            cam = fc.Camera(preview_enabled=True, expand=True)
+
+            async def init_cam():
                 try:
-                    img_bytes = await cam.take_picture()
-                    temp_file = os.path.join(tempfile.gettempdir(), f"{key}_photo.jpg")
-                    with open(temp_file, "wb") as f:
-                        f.write(img_bytes)
-                    new_photo_paths[key] = temp_file
-                    update_form_photo_ui(key, temp_file)
-                    close_camera(None)
+                    # Новый API требует description и resolution_preset
+                    await cam.initialize(
+                        description=selected_camera,
+                        resolution_preset=fc.ResolutionPreset.HIGH
+                    )
+                    page.update()
                 except Exception as ex:
-                    page.show_dialog(ft.SnackBar(ft.Text(f"Ошибка съемки: {ex}"), bgcolor=ft.Colors.RED))
-            page.run_task(capture)
+                    page.show_dialog(ft.SnackBar(ft.Text(f"Ошибка инициализации камеры: {ex}"), bgcolor=ft.Colors.RED))
 
-        camera_view = ft.Container(
-            content=ft.Column([
-                ft.Text("Сделайте фото", size=20, color=ft.Colors.WHITE, weight=ft.FontWeight.BOLD),
-                cam,
-                ft.Row([
-                    ft.Button("Отмена", on_click=lambda _: close_camera(None)),
-                    ft.Button("📸 Снять", on_click=take_picture, bgcolor=ft.Colors.BLUE, color=ft.Colors.WHITE)
-                ], alignment=ft.MainAxisAlignment.SPACE_EVENLY)
-            ]), bgcolor=ft.Colors.BLACK, expand=True, padding=20, visible=True
-        )
+            def take_picture(ev):
+                async def capture():
+                    try:
+                        img_bytes = await cam.take_picture()
+                        temp_file = os.path.join(tempfile.gettempdir(), f"{key}_photo.jpg")
+                        with open(temp_file, "wb") as f:
+                            f.write(img_bytes)
+                        new_photo_paths[key] = temp_file
+                        update_form_photo_ui(key, temp_file)
+                        close_camera(None)
+                    except Exception as ex:
+                        page.show_dialog(ft.SnackBar(ft.Text(f"Ошибка съемки: {ex}"), bgcolor=ft.Colors.RED))
+                page.run_task(capture)
 
-        def close_camera(_):
-            camera_view.visible = False
+            camera_view = ft.Container(
+                content=ft.Column([
+                    ft.Text("Сделайте фото", size=20, color=ft.Colors.WHITE, weight=ft.FontWeight.BOLD),
+                    cam,
+                    ft.Row([
+                        ft.Button("Отмена", on_click=lambda _: close_camera(None)),
+                        ft.Button("📸 Снять", on_click=take_picture, bgcolor=ft.Colors.BLUE, color=ft.Colors.WHITE)
+                    ], alignment=ft.MainAxisAlignment.SPACE_EVENLY)
+                ]), bgcolor=ft.Colors.BLACK, expand=True, padding=20, visible=True
+            )
+
+            def close_camera(_):
+                camera_view.visible = False
+                page.update()
+
+            page.overlay.append(camera_view)
+            page.run_task(init_cam)
             page.update()
 
-        page.overlay.append(camera_view)
-        page.run_task(init_cam) 
-        page.update()
+        page.run_task(request_and_open)
 
     def create_form_photo_section(title, key):
         img = ft.Image(src="", width=250, height=150, visible=False, border_radius=10, fit=ft.BoxFit.COVER)
@@ -207,7 +247,6 @@ def main(page: ft.Page):
         for k, path in new_photo_paths.items():
             persisted_photos[k] = persist_photo(path, k) if path else None
 
-        # ЗАЩИТА ОТ КРАСНОГО ЭКРАНА
         try:
             db.save_request({
                 "obj_name": new_obj_name.value,
@@ -312,7 +351,6 @@ def main(page: ft.Page):
         list_active.controls.clear()
         list_completed.controls.clear()
 
-        # ЗАЩИТА ОТ КРАСНОГО ЭКРАНА ПРИ ЗАГРУЗКЕ СПИСКА
         try:
             active_reqs = db.get_filtered_requests("active", search_query_active)
             completed_reqs = db.get_filtered_requests("completed", search_query_completed)

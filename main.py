@@ -17,7 +17,6 @@ def main(page: ft.Page):
     page.title = "Система заявок и ремонтов"
     page.theme_mode = ft.ThemeMode.LIGHT
     page.padding = 10 
-    # page.scroll = ft.ScrollMode.AUTO  <-- УБРАНО, чтобы не было бесконечной прокрутки
 
     # Безопасная зона для мобильных устройств
     page.add(ft.SafeArea(ft.Container()))
@@ -32,7 +31,7 @@ def main(page: ft.Page):
 
     # --- ОБРАБОТЧИК ФОТО ---
     file_picker = ft.FilePicker()
-    page.overlay.append(file_picker) # КРИТИЧЕСКИ ВАЖНО для работы галереи на Android
+    page.overlay.append(file_picker) 
     
     current_photo_key = None
     new_photo_paths = {"meter": None, "serial": None, "general": None, "object": None, "seal": None}
@@ -86,7 +85,6 @@ def main(page: ft.Page):
         def take_picture(ev):
             async def capture():
                 try:
-                    # Исправлено на take_picture()
                     img_bytes = await cam.take_picture()
                     temp_file = os.path.join(tempfile.gettempdir(), f"{key}_photo.jpg")
                     with open(temp_file, "wb") as f:
@@ -114,7 +112,7 @@ def main(page: ft.Page):
             page.update()
 
         page.overlay.append(camera_view)
-        page.run_task(init_cam) # Запускаем инициализацию
+        page.run_task(init_cam) 
         page.update()
 
     def create_form_photo_section(title, key):
@@ -161,7 +159,7 @@ def main(page: ft.Page):
 
     new_meter = ft.Dropdown(
         label="Тип счетчика",
-        menu_height=300, # Ограничение высоты выпадающего списка
+        menu_height=300, 
         options=[
             ft.DropdownOption(key="smt_smart_g6b", text="СМТ Смарт-К G6-B"),
             ft.DropdownOption(key="smt_smart_g4b", text="СМТ Смарт-К G4-B"),
@@ -209,47 +207,51 @@ def main(page: ft.Page):
         for k, path in new_photo_paths.items():
             persisted_photos[k] = persist_photo(path, k) if path else None
 
-        db.save_request({
-            "obj_name": new_obj_name.value,
-            "address": f"{district_text}, {new_address.value}" if district_text else new_address.value,
-            "fio": new_fio.value,
-            "meter": meter_text,
-            "meter_serial": new_meter_serial.value,
-            "meter_readings": new_meter_readings.value,
-            "meter_seal": new_meter_seal.value,
-            "malfunction": new_malfunction.value,
-            "status": "active",
-            "created_by": new_created_by.value if new_created_by.value else "Не указан",
-            "repaired_by": "",
-            "repair_process": "",
-            "repair_parts": "",
-            "repair_cost": "",
-            "photos": persisted_photos,
-        })
+        # ЗАЩИТА ОТ КРАСНОГО ЭКРАНА
+        try:
+            db.save_request({
+                "obj_name": new_obj_name.value,
+                "address": f"{district_text}, {new_address.value}" if district_text else new_address.value,
+                "fio": new_fio.value,
+                "meter": meter_text,
+                "meter_serial": new_meter_serial.value,
+                "meter_readings": new_meter_readings.value,
+                "meter_seal": new_meter_seal.value,
+                "malfunction": new_malfunction.value,
+                "status": "active",
+                "created_by": new_created_by.value if new_created_by.value else "Не указан",
+                "repaired_by": "",
+                "repair_process": "",
+                "repair_parts": "",
+                "repair_cost": "",
+                "photos": persisted_photos,
+            })
 
-        new_obj_name.value = ""
-        new_district.value = None
-        new_address.value = ""
-        new_fio.value = ""
-        new_meter.value = None
-        new_meter_serial.value = ""
-        new_meter_readings.value = ""
-        new_meter_seal.value = ""
-        new_malfunction.value = ""
-        new_created_by.value = ""
+            new_obj_name.value = ""
+            new_district.value = None
+            new_address.value = ""
+            new_fio.value = ""
+            new_meter.value = None
+            new_meter_serial.value = ""
+            new_meter_readings.value = ""
+            new_meter_seal.value = ""
+            new_malfunction.value = ""
+            new_created_by.value = ""
 
-        for k in new_photo_paths:
-            new_photo_paths[k] = None
-            form_photo_widgets[k]["img"].visible = False
-            form_photo_widgets[k]["status"].value = "❌ Нет фото"
-            form_photo_widgets[k]["status"].color = ft.Colors.RED
+            for k in new_photo_paths:
+                new_photo_paths[k] = None
+                form_photo_widgets[k]["img"].visible = False
+                form_photo_widgets[k]["status"].value = "❌ Нет фото"
+                form_photo_widgets[k]["status"].color = ft.Colors.RED
 
-        refresh_lists()
-        page.show_dialog(ft.SnackBar(ft.Text("✅ Заявка создана!"), bgcolor=ft.Colors.GREEN))
-        tab_bar_view.selected_index = 1
-        page.update()
+            refresh_lists()
+            page.show_dialog(ft.SnackBar(ft.Text("✅ Заявка создана!"), bgcolor=ft.Colors.GREEN))
+            tab_bar_view.selected_index = 1
+            page.update()
+            
+        except Exception as ex:
+            page.show_dialog(ft.SnackBar(ft.Text(f"Ошибка сохранения: {ex}"), bgcolor=ft.Colors.RED))
 
-    # Заменили Column на ListView для правильной прокрутки
     form_tab = ft.Container(
         padding=20,
         content=ft.ListView(
@@ -269,7 +271,7 @@ def main(page: ft.Page):
                 ft.Container(height=10),
                 ft.Button("Сохранить заявку", icon=ft.Icons.SAVE, on_click=save_new_request,
                           bgcolor=ft.Colors.BLUE_700, color=ft.Colors.WHITE, expand=True, height=50),
-                ft.Container(height=50) # Отступ снизу
+                ft.Container(height=50)
             ],
             spacing=10,
         )
@@ -310,38 +312,42 @@ def main(page: ft.Page):
         list_active.controls.clear()
         list_completed.controls.clear()
 
-        active_reqs = db.get_filtered_requests("active", search_query_active)
-        completed_reqs = db.get_filtered_requests("completed", search_query_completed)
+        # ЗАЩИТА ОТ КРАСНОГО ЭКРАНА ПРИ ЗАГРУЗКЕ СПИСКА
+        try:
+            active_reqs = db.get_filtered_requests("active", search_query_active)
+            completed_reqs = db.get_filtered_requests("completed", search_query_completed)
 
-        for req in active_reqs + completed_reqs:
-            card_controls = [
-                ft.Text(f"Заявка №{req['id']} | {req['meter']}", weight=ft.FontWeight.BOLD),
-                ft.Text(f"Зав. №: {req.get('meter_serial', 'Не указан')}", color=ft.Colors.GREY_700),
-                ft.Text(f"Адрес: {req['address']}"),
-                ft.Text(f"Клиент: {req['fio']}"),
-                ft.Text(f"Создал: {req.get('created_by', 'Не указан')}", color=ft.Colors.BLUE),
-                ft.Text("Статус: " + ("В работе" if req['status'] == 'active' else "Завершена"),
-                        color=ft.Colors.ORANGE if req['status'] == 'active' else ft.Colors.GREEN)
-            ]
+            for req in active_reqs + completed_reqs:
+                card_controls = [
+                    ft.Text(f"Заявка №{req['id']} | {req['meter']}", weight=ft.FontWeight.BOLD),
+                    ft.Text(f"Зав. №: {req.get('meter_serial', 'Не указан')}", color=ft.Colors.GREY_700),
+                    ft.Text(f"Адрес: {req['address']}"),
+                    ft.Text(f"Клиент: {req['fio']}"),
+                    ft.Text(f"Создал: {req.get('created_by', 'Не указан')}", color=ft.Colors.BLUE),
+                    ft.Text("Статус: " + ("В работе" if req['status'] == 'active' else "Завершена"),
+                            color=ft.Colors.ORANGE if req['status'] == 'active' else ft.Colors.GREEN)
+                ]
 
-            if req['status'] == 'completed':
-                cost = req.get('repair_cost', '')
-                worker = req.get('repaired_by', 'Не указан')
-                if cost:
-                    card_controls.append(ft.Text(f"💰 Стоимость: {cost} ₽", color=ft.Colors.GREEN_800, weight=ft.FontWeight.BOLD))
-                card_controls.append(ft.Text(f"🔧 Выполнил: {worker}", color=ft.Colors.GREY_800))
+                if req['status'] == 'completed':
+                    cost = req.get('repair_cost', '')
+                    worker = req.get('repaired_by', 'Не указан')
+                    if cost:
+                        card_controls.append(ft.Text(f"💰 Стоимость: {cost} ₽", color=ft.Colors.GREEN_800, weight=ft.FontWeight.BOLD))
+                    card_controls.append(ft.Text(f"🔧 Выполнил: {worker}", color=ft.Colors.GREY_800))
 
-            card = ft.Container(
-                content=ft.Column(card_controls),
-                padding=15, border=ft.Border.all(1, ft.Colors.GREY_300), border_radius=10, bgcolor=ft.Colors.WHITE,
-                on_click=lambda e, r=req: open_request_detail(r, is_view_only=(r['status'] == 'completed')),
-                ink=True
-            )
+                card = ft.Container(
+                    content=ft.Column(card_controls),
+                    padding=15, border=ft.Border.all(1, ft.Colors.GREY_300), border_radius=10, bgcolor=ft.Colors.WHITE,
+                    on_click=lambda e, r=req: open_request_detail(r, is_view_only=(r['status'] == 'completed')),
+                    ink=True
+                )
 
-            if req['status'] == 'active':
-                list_active.controls.append(card)
-            else:
-                list_completed.controls.append(card)
+                if req['status'] == 'active':
+                    list_active.controls.append(card)
+                else:
+                    list_completed.controls.append(card)
+        except Exception as ex:
+             page.show_dialog(ft.SnackBar(ft.Text(f"Ошибка загрузки: {ex}"), bgcolor=ft.Colors.RED))
 
         page.update()
 
@@ -359,14 +365,17 @@ def main(page: ft.Page):
             page.update()
 
         def complete_repair(e):
-            db.complete_request(int(req["id"]), {
-                "repair_process": repair_process.value,
-                "repair_parts": repair_parts.value,
-                "repair_cost": repair_cost.value,
-                "repaired_by": repair_worker.value if repair_worker.value else "Не указан",
-            })
-            refresh_lists()
-            go_back(None)
+            try:
+                db.complete_request(int(req["id"]), {
+                    "repair_process": repair_process.value,
+                    "repair_parts": repair_parts.value,
+                    "repair_cost": repair_cost.value,
+                    "repaired_by": repair_worker.value if repair_worker.value else "Не указан",
+                })
+                refresh_lists()
+                go_back(None)
+            except Exception as ex:
+                page.show_dialog(ft.SnackBar(ft.Text(f"Ошибка завершения: {ex}"), bgcolor=ft.Colors.RED))
 
         def export_pdf(e):
             try:

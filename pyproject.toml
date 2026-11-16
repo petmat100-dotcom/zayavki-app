@@ -19,14 +19,13 @@ product = "Zayavki"
 [tool.flet.app]
 path = "."
 
-# Разрешения Android (правильный синтаксис)
 [tool.flet.android.permission]
 "android.permission.CAMERA" = true
 "android.permission.READ_MEDIA_IMAGES" = true
 "android.permission.ACCESS_FINE_LOCATION" = true
 "android.permission.ACCESS_COARSE_LOCATION" = true
 
-extract_packages = ["supabase", "pydantic", "pydantic_core"]
+extract_packages = ["supabase", "pydantic", "pydantic_core", "flet_camera", "flet_permission_handler"]
 
 [tool.flet.android.packaging_options]
 pickFirsts = ["**/libc++_shared.so"]

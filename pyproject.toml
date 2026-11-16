@@ -5,11 +5,13 @@ description = "Flet Zayavki App"
 requires-python = ">=3.10"
 dependencies = [
     "flet==1.1.2",
-    "flet-camera",    
+    "flet-camera",
+    "flet-permission-handler",
     "fpdf2",
     "httpx",
     "supabase"
 ]
+
 [tool.flet]
 org = "com.petmat"
 product = "Zayavki"
@@ -17,15 +19,14 @@ product = "Zayavki"
 [tool.flet.app]
 path = "."
 
-[tool.flet.android]
-permissions = [
-    "android.permission.CAMERA",
-    "android.permission.READ_MEDIA_IMAGES",
-    "android.permission.READ_EXTERNAL_STORAGE",
-    "android.permission.WRITE_EXTERNAL_STORAGE"
-]
+# Разрешения Android (правильный синтаксис)
+[tool.flet.android.permission]
+"android.permission.CAMERA" = true
+"android.permission.READ_MEDIA_IMAGES" = true
+"android.permission.ACCESS_FINE_LOCATION" = true
+"android.permission.ACCESS_COARSE_LOCATION" = true
+
 extract_packages = ["supabase", "pydantic", "pydantic_core"]
 
-# 👇 ДОБАВИТЬ ВОТ ЭТУ СЕКЦИЮ
 [tool.flet.android.packaging_options]
 pickFirsts = ["**/libc++_shared.so"]
